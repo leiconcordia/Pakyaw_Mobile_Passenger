@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pakyaw/pages/authenticate/otp_verification.dart';
 import 'package:pakyaw/providers/auth_provider.dart';
-import 'package:pakyaw/providers/user_provider.dart';
 
 class SignIn extends ConsumerStatefulWidget {
   const SignIn({super.key});
@@ -13,196 +12,235 @@ class SignIn extends ConsumerStatefulWidget {
 }
 
 class _SignInState extends ConsumerState<SignIn> {
-
   final _formKey = GlobalKey<FormState>();
 
   bool isLoading = false;
-
   String mobileNo = '';
   String error = '';
 
+  /// Handles Firebase phone authentication
   Future<void> _submitPhoneNumber(BuildContext context) async {
+    setState(() => isLoading = true);
+
     String phoneNumber = '+63${mobileNo.trim()}';
     FirebaseAuth auth = FirebaseAuth.instance;
 
-    await auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-
-      },
-      verificationFailed: (FirebaseAuthException e){
-        print(e.toString());
-      },
-      codeSent: (String verificationId, int? resendToken){
-        Navigator.push(context, MaterialPageRoute(builder: (context) => OtpVerification(verificationID: verificationId, phoneNum: phoneNumber,)));
-      },
-      codeAutoRetrievalTimeout: (String verificationId){
-
-      },
-    );
+    try {
+      await auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {},
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() {
+            isLoading = false;
+            error = e.message ?? 'Verification failed. Try again.';
+          });
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() => isLoading = false);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtpVerification(
+                verificationID: verificationId,
+                phoneNum: phoneNumber,
+              ),
+            ),
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
+      );
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        error = 'An error occurred. Please try again.';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final _authService = ref.watch(authServiceProvider);
+    final authService = ref.watch(authServiceProvider);
+
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const SizedBox(height: 120.0,),
-                Container(
-                  margin: const EdgeInsets.fromLTRB(20.0, 50.0, 0.0, 0.0),
-                  child: const Text(
-                    'Enter your mobile number',
-                    style: TextStyle(
-                      fontSize: 30.0,
-                    ),
-                  ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              const Text(
+                'Enter your mobile number',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black, width: 3.0),
-                          borderRadius: BorderRadius.circular(10.0),
-                          color: Colors.grey[350],
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 3.0, horizontal: 12.0),
-                        margin: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
-                          child: Row(
-                          children: <Widget>[
-                            const SizedBox(width: 3.0,),
-                            const Text(
-                              '+63',
-                              style: TextStyle(
-                                fontSize: 18.0,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 3.0,),
-                            Expanded(
-                              child: TextFormField(
-                                keyboardType: TextInputType.number,
-                                style: const TextStyle(
-                                  fontSize: 18.0,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Mobile Number',
-                                  hintStyle: const TextStyle(
-                                    fontSize: 16.0,
-                                  ),
-                                  fillColor: Colors.grey[350],
-                                  filled: true,
-                                  enabledBorder: const OutlineInputBorder(
-                                    borderSide: BorderSide.none
-                                  )
-                                ),
-                                onChanged: (val) => {
-                                  setState(() => mobileNo = val)
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 20.0,),
-                            const Icon(Icons.phone)
-                          ],
-                        ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'We will send you a verification code.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 40),
+
+              // Form
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Phone Input
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.black26, width: 1.5),
                       ),
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(20.0, 0.0, 0.0, 0.0),
-                        child: Text(error,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 14.0,
-                          ),),
-                      ),
-                      const SizedBox(height: 10.0,),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                          child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10.0)
-                                ),
-                                  padding: const EdgeInsets.symmetric(vertical: 15.0)
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          const Text(
+                            '+63',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              keyboardType: TextInputType.phone,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                hintText: '10-digit mobile number',
+                                hintStyle: TextStyle(color: Colors.black38),
                               ),
-                              onPressed: () async {
-                                print("Continue button pressed!");
-                                if(mobileNo.isEmpty){
-                                  setState(() => error = 'Type in a mobile number');
-                                }else if(mobileNo.length != 10){
-                                  setState(() => error = 'Mobile number must be 11 digits.');
-                                }else{
-                                  print(mobileNo);
-                                  _submitPhoneNumber(context);
-                                  setState(() => error = '');
+                              style: const TextStyle(fontSize: 18),
+                              onChanged: (val) => setState(() => mobileNo = val),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a mobile number';
+                                } else if (value.length != 10) {
+                                  return 'Must be 10 digits';
                                 }
+                                return null;
                               },
-                              child: const Text(
-                                'Continue',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20.0,
-                                ),
-                              ),
                             ),
-                        ),
-                      ),
-                      const SizedBox(height: 9.0,),
-                      const Row(
-                        children: <Widget>[
-                          SizedBox(width: 20.0,),
-                          Expanded(child: Divider()),
-                          SizedBox(width: 5.0,),
-                          Text('or'),
-                          SizedBox(width: 5.0,),
-                          Expanded(child: Divider()),
-                          SizedBox(width: 20.0,),
+                          ),
+                          const Icon(Icons.phone_android, color: Colors.black54),
                         ],
                       ),
-                      const SizedBox(height: 10.0,),
-                      SizedBox(
-                        width: 100.0,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                          child: isLoading ? const CircularProgressIndicator() : ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey[350],
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10.0)
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 15.0)
-                            ),
-                            onPressed: () async{
-                              await _authService.signInWithGoogle();
-                            },
-                            child: const Image(
-                              image: AssetImage('assets/Google.png'),
-                              width: 30.0,
-                              height: 30.0,
-                              fit: BoxFit.contain,
-                            ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Error message
+                    if (error.isNotEmpty)
+                      Text(
+                        error,
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
+                      ),
+
+                    const SizedBox(height: 20),
+
+                    // Continue Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 3,
+                        ),
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                          if (_formKey.currentState!.validate()) {
+                            _submitPhoneNumber(context);
+                          }
+                        },
+                        child: isLoading
+                            ? const CircularProgressIndicator(
+                          color: Colors.white,
+                        )
+                            : const Text(
+                          'Continue',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10.0,),
-
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // OR Divider
+              Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.grey[400])),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      'OR',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: Colors.grey[400])),
+                ],
+              ),
+              const SizedBox(height: 30),
+
+              // Google Sign-In Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Colors.black26, width: 1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    backgroundColor: Colors.white,
+                  ),
+                  icon: Image.asset(
+                    'assets/Google.png',
+                    width: 28,
+                    height: 28,
+                  ),
+                  label: const Text(
+                    'Sign in with Google',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onPressed: () async {
+                    setState(() => isLoading = true);
+                    await authService.signInWithGoogle();
+                    setState(() => isLoading = false);
+                  },
+                ),
+              ),
+            ],
           ),
+        ),
       ),
     );
   }
 }
-
-
