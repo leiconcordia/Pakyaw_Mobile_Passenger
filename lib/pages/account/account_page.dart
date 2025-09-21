@@ -363,7 +363,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
     required String title,
     String? subtitle,
     VoidCallback? onTap,
-    bool enabled = true,
+    bool enabled = true,a
   }) {
     return ListTile(
       enabled: enabled,

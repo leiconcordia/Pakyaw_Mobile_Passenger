@@ -39,9 +39,6 @@ class AuthService{
       print('error in: ${e.toString()}');
     }
 
-
-
-
   }
   
 

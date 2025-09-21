@@ -22,7 +22,6 @@ class ConfirmVehicletype extends ConsumerStatefulWidget {
 }
 
 class _ConfirmVehicletypeState extends ConsumerState<ConfirmVehicletype> {
-
   DatabaseService database = DatabaseService();
   int? selectedCapacity = 1;
   int? selectedIndex;
@@ -34,55 +33,47 @@ class _ConfirmVehicletypeState extends ConsumerState<ConfirmVehicletype> {
   String? duration;
   double? distance;
   int? wheels;
-  String error1 = '';
+  String errorMessage = '';
   String id = '';
-
-  showWarning(BuildContext context1){
-    SizeConfig().init(context1);
-    showDialog(context: context, builder: (context) => AlertDialog(
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Icon(Icons.warning_outlined,color: Colors.yellow, size: SizeConfig.safeBlockHorizontal * 8,),
-            ),
-            Center(
-              child: Text(
-                'Warning',
-                style: TextStyle(
-                    fontSize: SizeConfig.safeBlockHorizontal * 5,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold
-                ),
-              ),
-            ),
-            Center(
-              child: Text(
-                'Select a vehicle type',
-                style: TextStyle(
-                    fontSize: SizeConfig.safeBlockHorizontal * 4,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w400
-                ),
-              ),
-            )
-          ],
-        ),
-      ),
-    ));
-  }
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     ref.read(tripProvider.notifier).printTripDetails();
     final user = ref.read(authStateProvider).value;
     id = user!.uid;
   }
 
-  getRouteInfo(LatLng origin, LatLng destination, String travelMode) async {
+  /// Show warning dialog
+  void showWarning() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 50),
+        content: const Text(
+          'Please select a vehicle type before confirming.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Google Directions API
+  Future<void> getRouteInfo(LatLng origin, LatLng destination, String travelMode) async {
     const String url = 'https://routes.googleapis.com/directions/v2:computeRoutes';
     Map<String, String> headers = {
       'Content-Type': 'application/json',
@@ -92,64 +83,31 @@ class _ConfirmVehicletypeState extends ConsumerState<ConfirmVehicletype> {
     Map<String, dynamic> body = {
       'origin': {
         'location': {
-          'latLng': {
-            'latitude': origin.latitude,
-            'longitude': origin.longitude
-          }
+          'latLng': {'latitude': origin.latitude, 'longitude': origin.longitude}
         }
       },
       'destination': {
         'location': {
-          'latLng': {
-            'latitude': destination.latitude,
-            'longitude': destination.longitude
-          }
+          'latLng': {'latitude': destination.latitude, 'longitude': destination.longitude}
         }
       },
       'travelMode': travelMode,
       'routingPreference': 'TRAFFIC_AWARE',
       'computeAlternativeRoutes': false,
-      'routeModifiers': {'avoidTolls': false, 'avoidHighways': false, 'avoidFerries': true},
       'languageCode': 'en-US',
       'units': 'METRIC'
     };
 
     var response = await RequestAssistant.postRequest(url, headers, body);
 
-    if(response is Map<String, dynamic> && response.containsKey('routes')){
+    if (response is Map<String, dynamic> && response.containsKey('routes')) {
       final route = response['routes'][0];
-
       distance = route['distanceMeters'] / 1000.0;
       duration = route['duration'];
       routePoints = decodePolyline(route['polyline']['encodedPolyline']);
-
-    }else{
+    } else {
       throw Exception('Failed to get route information: $response');
     }
-
-  }
-
-  Duration parseDuration(String s) {
-    int hours = 0;
-    int minutes = 0;
-    int seconds = 0;
-    List<String> parts = s.replaceAll(' ', '').toLowerCase().split(RegExp(r'[hms]'));
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i].isNotEmpty) {
-        switch (s[s.indexOf(parts[i]) + parts[i].length]) {
-          case 'h':
-            hours = int.parse(parts[i]);
-            break;
-          case 'm':
-            minutes = int.parse(parts[i]);
-            break;
-          case 's':
-            seconds = int.parse(parts[i]);
-            break;
-        }
-      }
-    }
-    return Duration(hours: hours, minutes: minutes, seconds: seconds);
   }
 
   List<LatLng> decodePolyline(String encoded) {
@@ -162,279 +120,223 @@ class _ConfirmVehicletypeState extends ConsumerState<ConfirmVehicletype> {
     final vehicleTypes = ref.watch(vehicleTypesProvider);
     final maxCapacity = ref.watch(maxCapacityProvider);
     final trip = ref.watch(tripProvider);
+
     return vehicleTypes.when(
       data: (data) {
         return Scaffold(
+          backgroundColor: Colors.grey[100],
           appBar: AppBar(
             title: const Text(
-              'Vehicle Type',
-              style: TextStyle(
-                  fontSize: 20.0,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black
-              ),
+              'Choose Vehicle',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
             ),
+            backgroundColor: Colors.white,
+            elevation: 1,
+            iconTheme: const IconThemeData(color: Colors.black),
           ),
-          body: Column(
+
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 10.0,),
-                      const Center(
-                        child: Text(
-                          'How many are riding?',
-                          style: TextStyle(
-                              fontSize: 20.0,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black
-                          ),
-                        ),
+                // Title
+                const Text(
+                  'How many are riding?',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+
+                // Passenger Capacity Dropdown
+                maxCapacity.when(
+                  data: (max) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
-                      maxCapacity.when(
-                        data: (data){
-                          return Center(
-                            child: SizedBox(
-                              width: SizeConfig.blockSizeHorizontal * 20,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10.0),
-                                    border: Border.all(color: Colors.black, width: 3.0),
-                                    color: Colors.white
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 10.0, right: 10.0),
-                                  child: DropdownButton(
-                                    menuMaxHeight: 200.0,
-                                    underline: Container(),
-                                    elevation: 0,
-                                    onChanged: (int? value){
-                                      setState(() {
-                                        selectedCapacity = value;
-                                      });
-                                    },
-                                    isExpanded: true,
-                                    alignment: Alignment.bottomCenter,
-                                    value: selectedCapacity,
-                                    icon: const Icon(Icons.keyboard_arrow_down),
-                                    //this is where I want to get the max capacity
-                                    items: List<int>.generate(data.capacity,
-                                            (int index) => index + 1).map(
-                                          (val) {
-                                        return DropdownMenuItem<int>(
-                                          value: val,
-                                          child: Text('$val'),
-                                        );
-                                      },
-                                    ).toList(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
+                      child: DropdownButton<int>(
+                        value: selectedCapacity,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        icon: const Icon(Icons.keyboard_arrow_down),
+                        onChanged: (value) {
+                          setState(() => selectedCapacity = value);
                         },
-                        error: (e, error) => Text('Error: $e'),
-                        loading: () => const Loading(),
-                  
+                        items: List<int>.generate(max.capacity, (index) => index + 1)
+                            .map((val) => DropdownMenuItem<int>(
+                          value: val,
+                          child: Text('For $val Passenger${val > 1 ? "s" : ""}'),
+                        ))
+                            .toList(),
                       ),
-                      const SizedBox(height: 50.0,),
-                      Expanded(
-                        child: Container(
-                          width: SizeConfig.screenWidth,
-                          padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 30.0),
+                    );
+                  },
+                  error: (e, _) => Text('Error: $e'),
+                  loading: () => const Loading(),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Vehicle Types Grid
+                const Text(
+                  'Select Vehicle Type',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+
+                Expanded(
+                  child: GridView.builder(
+                    padding: EdgeInsets.zero,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: data.length,
+                    itemBuilder: (context, index) {
+                      final vehicle = data[index];
+                      final isAvailable = selectedCapacity! <= vehicle.capacity;
+                      final isSelected = selectedIndex == index;
+
+                      return GestureDetector(
+                        onTap: isAvailable
+                            ? () {
+                          setState(() {
+                            selectedIndex = index;
+                            selectedVehicle = vehicle.type;
+                            baseRate = vehicle.baseRate;
+                            ratePerKm = vehicle.ratePerKm;
+                            typeImage = vehicle.image;
+                            wheels = vehicle.wheels;
+                          });
+                        }
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10.0),
-                            color: Colors.white,
-                          ),
-                  
-                          child: Column(
-                            children: [
-                              Text(
-                                error1,
-                                style: TextStyle(
-                                  fontSize: SizeConfig.safeBlockHorizontal * 3,
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.w500
+                            color: isAvailable
+                                ? (isSelected ? Colors.deepPurple.shade50 : Colors.white)
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Colors.deepPurple
+                                  : (isAvailable ? Colors.grey.shade300 : Colors.grey.shade400),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              if (isSelected)
+                                BoxShadow(
+                                  color: Colors.deepPurple.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
                                 ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Image.network(
+                                vehicle.image,
+                                height: 50,
+                                width: 50,
+                                fit: BoxFit.contain,
+                                color: isAvailable ? null : Colors.grey.shade400,
                               ),
-                              Expanded(
-                                child: GridView.builder(
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    crossAxisSpacing: 10.0,
-                                    mainAxisSpacing: 10.0,
-                                  ),
-                                  itemCount: data.length,
-                                  itemBuilder: (context, index) {
-                                    if(selectedCapacity! <= data[index].capacity){
-                                      return GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            selectedIndex = index;
-                                            selectedVehicle = data[index].type;
-                                            baseRate = data[index].baseRate;
-                                            ratePerKm = data[index].ratePerKm;
-                                            typeImage = data[index].image;
-                                            wheels = data[index].wheels;
-                                          });
-                                        },
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: selectedIndex == index ? Colors.grey[350] : Colors.white,
-                                            border: Border.all(
-                                              color: selectedIndex == index ? Colors.black : Colors.black,
-                                              width: 3.0,
-                                            ),
-                                            borderRadius: BorderRadius.circular(10.0),
-                                          ),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: <Widget>[
-                                              Image(
-                                                image: NetworkImage(data[index].image),
-                                                height: 50.0,
-                                                width: 50.0,
-                                                fit: BoxFit.contain,
-                                              ),
-                                              const SizedBox(height: 10.0,),
-                                              Text(
-                                                data[index].type,
-                                                style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 15.0,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    }else{
-                                      if(selectedVehicle == data[index].type){
-                                        selectedVehicle = null;
-                                      }
-                                      return GestureDetector(
-                                        onTap: () {
-                                        },
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[100],
-                                            border: Border.all(
-                                              color: Colors.black54,
-                                              width: 3.0,
-                                            ),
-                                            borderRadius: BorderRadius.circular(10.0),
-                                          ),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: <Widget>[
-                                              Image(
-                                                image: NetworkImage(data[index].image),
-                                                height: SizeConfig.blockSizeVertical * 7,
-                                                width: SizeConfig.blockSizeHorizontal * 10,
-                                                color: Colors.black54,
-                                                fit: BoxFit.contain,
-                                              ),
-                                              const SizedBox(height: 10.0,),
-                                              Text(
-                                                data[index].type,
-                                                style: const TextStyle(
-                                                  color: Colors.black54,
-                                                  fontSize: 15.0,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
+                              const SizedBox(height: 8),
+                              Text(
+                                vehicle.type,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isAvailable ? Colors.black : Colors.grey,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      )
-                    ],
+                      );
+                    },
                   ),
                 ),
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(22.0),
-                  child: SizedBox(
-                    height: SizeConfig.blockSizeVertical * 8,
-                    width: SizeConfig.screenWidth,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black
-                      ),
-                      onPressed: () async {
-                        double vatTax = await database.getVatTax();
-                        double ccTax = await database.getCCTax();
-                        double fare = 0;
-                        double basekm = await database.getBaseKm();
-                        double charge = await database.getPassengerCharge(id);
+              ],
+            ),
+          ),
 
-                        if(wheels! <= 3){
-                          print('TWO_WHEELER');
-                          await getRouteInfo(LatLng(trip.pickupLoc!.latitude, trip.pickupLoc!.longitude),
-                             LatLng(trip.dropOffLoc!.latitude, trip.dropOffLoc!.longitude), 'TWO_WHEELER');
-                          ref.read(tripProvider.notifier).updateTrip((trip) => trip.copyWith(travelMode: 'TWO_WHEELER'));
-                          print('result of fare: ${distance! < basekm}');
-                          if(distance! < basekm){
-                            fare = baseRate!.toDouble();
-                          }else{
-                            fare = baseRate! + ((distance! - 1) * ratePerKm!);
-                          }
-                        }else{
-                          print('Drive');
-                          await getRouteInfo(LatLng(trip.pickupLoc!.latitude, trip.pickupLoc!.longitude),
-                              LatLng(trip.dropOffLoc!.latitude, trip.dropOffLoc!.longitude), 'DRIVE');
-                          ref.read(tripProvider.notifier).updateTrip((trip) => trip.copyWith(travelMode: 'DRIVE'));
-                          print('result of fare: ${distance! < basekm}');
-                          if(distance! < basekm){
-                            fare = baseRate!.toDouble();
-                          }else{
-                            fare = baseRate! + ((distance! - 1) * ratePerKm!);
-                          }
-                        }
-                        if(selectedVehicle != null) {
-                          ref.read(tripProvider.notifier).updateTrip((trip) =>  trip.copyWith(
-                            vehicleType: selectedVehicle,
-                            baseRate: baseRate,
-                            ratePerKm: ratePerKm,
-                            vehicleTypeImage: typeImage,
-                            duration: duration,
-                            route: routePoints,
-                            distance: distance,
-                            vatTax: vatTax,
-                            ccTax: ccTax,
-                            fare: double.parse((fare + charge).toStringAsFixed(2)),
-                          ));
-                          Navigator.push(context, MaterialPageRoute(
-                              builder: (context) => ConfirmTripPage()));
-                        }else{
-                          showWarning(context);
-                        }
-                      },
-                      child: Text('Confirm', style: TextStyle(fontSize: SizeConfig.safeBlockHorizontal * 7, fontWeight: FontWeight.bold, color: Colors.white),),
+          // Confirm Button
+          bottomNavigationBar: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () async {
+                if (selectedVehicle == null) {
+                  showWarning();
+                  return;
+                }
 
-                    ),
+                double vatTax = await database.getVatTax();
+                double ccTax = await database.getCCTax();
+                double baseKm = await database.getBaseKm();
+                double charge = await database.getPassengerCharge(id);
+
+                final tripData = ref.read(tripProvider);
+
+                // Calculate route and fare
+                if (wheels! <= 3) {
+                  await getRouteInfo(
+                    LatLng(tripData.pickupLoc!.latitude, tripData.pickupLoc!.longitude),
+                    LatLng(tripData.dropOffLoc!.latitude, tripData.dropOffLoc!.longitude),
+                    'TWO_WHEELER',
+                  );
+                } else {
+                  await getRouteInfo(
+                    LatLng(tripData.pickupLoc!.latitude, tripData.pickupLoc!.longitude),
+                    LatLng(tripData.dropOffLoc!.latitude, tripData.dropOffLoc!.longitude),
+                    'DRIVE',
+                  );
+                }
+
+                double fare = (distance! < baseKm)
+                    ? baseRate!.toDouble()
+                    : baseRate! + ((distance! - 1) * ratePerKm!);
+
+                ref.read(tripProvider.notifier).updateTrip(
+                      (trip) => trip.copyWith(
+                    vehicleType: selectedVehicle,
+                    baseRate: baseRate,
+                    ratePerKm: ratePerKm,
+                    vehicleTypeImage: typeImage,
+                    duration: duration,
+                    route: routePoints,
+                    distance: distance,
+                    vatTax: vatTax,
+                    ccTax: ccTax,
+                    fare: double.parse((fare + charge).toStringAsFixed(2)),
                   ),
-                ),
-              ]
+                );
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ConfirmTripPage()),
+                );
+              },
+              child: const Text(
+                'Confirm',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         );
       },
-      error: (e, stack) {
-        print(e.toString());
-        print(stack.toString());
-        return ErrorCatch(error: e.toString());
-      },
+      error: (e, stack) => ErrorCatch(error: e.toString()),
       loading: () => const Loading(),
-
     );
   }
 }

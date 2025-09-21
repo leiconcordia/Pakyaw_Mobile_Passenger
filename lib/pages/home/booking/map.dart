@@ -34,6 +34,8 @@ class DropOffSelect extends ConsumerStatefulWidget {
 
 class _DropOffSelectState extends ConsumerState<DropOffSelect> {
 
+
+
   double _currentHeight = SizeConfig.blockSizeVertical * 76; // Initial height
   final double _minHeight = SizeConfig.blockSizeVertical * 23;
   final double _maxHeight = SizeConfig.blockSizeVertical * 76;
@@ -67,7 +69,7 @@ class _DropOffSelectState extends ConsumerState<DropOffSelect> {
   void findPlaces(String placeName) async {
     if(placeName.length > 2){
       String autoCompleteUrl = "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$placeName&location=11.0384%2C124.6105&radius=14000&strictbounds=true&key=$googleMapKey&sessiontoken=$tokenForSession";
-
+print(autoCompleteUrl);
       var res = await RequestAssistant.getRequest(autoCompleteUrl);
 
       if(res == "Failed"){
